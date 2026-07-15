@@ -340,6 +340,30 @@ export default function PosPage() {
                       />
                     </div>
 
+                    {/* Session Cash Transaction logs */}
+                    <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '16px', textAlign: 'left' }}>
+                      <h4 style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Session Cash Journal
+                      </h4>
+                      <div style={{ maxHeight: '150px', overflowY: 'auto', background: '#FAF9F6', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {state.cashSession.transactions.length === 0 ? (
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', textAlign: 'center', padding: '12px 0' }}>No cash adjustments recorded.</p>
+                        ) : (
+                          [...state.cashSession.transactions].reverse().map((tx) => (
+                            <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(0,0,0,0.03)', fontSize: '11px' }}>
+                              <div>
+                                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{tx.description}</span>
+                                <p style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(tx.timestamp).toLocaleTimeString()}</p>
+                              </div>
+                              <span style={{ fontWeight: '700', color: tx.type === 'payout' || tx.type === 'refund' || tx.type === 'restock' ? 'var(--danger-color)' : 'var(--success-color)' }}>
+                                {tx.type === 'payout' || tx.type === 'refund' || tx.type === 'restock' ? '-' : '+'}₹{tx.amount.toFixed(2)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
                     <button onClick={handleCloseDrawer} className="btn btn-danger" style={{ marginTop: '12px' }}>
                       Verify & Close Session
                     </button>

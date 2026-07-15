@@ -244,7 +244,7 @@ const DEFAULT_STATE: RestaurantState = {
   cogs: 0,
   restockExpenses: 0,
   lastOrderNumber: 1000,
-  merchantUpiId: 'admin@okaxis', // Default merchant account to test real-time payments
+  merchantUpiId: '8210166656@ibl', // Default merchant account to test real-time payments
 };
 
 const RestaurantContext = createContext<RestaurantContextProps | undefined>(undefined);
