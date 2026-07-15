@@ -1,0 +1,25 @@
+# Task Checklist - Restaurant Application
+
+- [x] **Phase 1: Project Initialization & Environments**
+  - [x] Initialize Next.js app in current directory
+  - [x] Install Vitest testing dependencies
+  - [x] Clean up default Next.js templates
+- [x] **Phase 2: Core Server Security & SEO**
+  - [x] Create server authentication API route (`/api/auth/login` and `/api/auth/logout`)
+  - [x] Create Next.js server-side `src/middleware.ts` for route protection
+  - [x] Create crawler SEO configurations: `src/app/robots.ts`, `src/app/sitemap.ts`, `src/app/manifest.ts`
+- [x] **Phase 3: State Engine & Recipes**
+  - [x] Define menus, recipes, raw ingredient thresholds, and initial stocks
+  - [x] Create `RestaurantContext` with LocalStorage state synchronisation & storage event handler
+  - [x] Implement auto-stocking replenishment mechanism and ledger updates
+- [x] **Phase 4: Mobile UI Development**
+  - [x] Define global layout with device frame and role selector
+  - [x] Implement Auth Page
+  - [x] Implement Customer Ordering Portal (categories, checkout sheet, fulfillment selector, payment simulator, order tracking)
+  - [x] Implement Kitchen Display View (ticket cards, statuses)
+  - [x] Implement Cashier POS View (walk-in checkout, cash drawer controls)
+  - [x] Implement Inventory & Analytics Panel
+- [x] **Phase 5: Automated Testing & Verification**
+  - [x] Configure `vitest.config.mts`
+  - [x] Write unit tests for order number sequence, auto-stocking logic, cash drawer balance audits, and route login authorization
+  - [x] Run automated test suite to confirm passing status, type checks, and build validations
