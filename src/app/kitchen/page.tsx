@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Flame, Clock, ChevronRight, LogOut, CheckSquare, Coffee, RotateCcw, AlertTriangle, X
+  Flame, Clock, ChevronRight, LogOut, CheckSquare, Coffee, RotateCcw, AlertTriangle, X 
 } from 'lucide-react';
 import { useRestaurant, Order, OrderStatus } from '@/context/RestaurantContext';
 
@@ -43,7 +43,7 @@ export default function KitchenPage() {
 
   return (
     <div className="device-container">
-      {/* Dynamic role switch link */}
+      {/* Back to Customer view switch */}
       <button className="role-switch-badge" onClick={() => router.push('/')}>
         🍽️ Customer Site
       </button>
@@ -55,7 +55,7 @@ export default function KitchenPage() {
             <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Kitchen Screen
             </span>
-            <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px' }}>KDS Monitor</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px', color: 'var(--accent-color)' }}>KDS Monitor</h1>
           </div>
           
           <button 
@@ -108,7 +108,7 @@ export default function KitchenPage() {
                   style={{ 
                     padding: '16px',
                     borderColor: selectedOrder?.id === order.id ? 'var(--accent-color)' : 'var(--border-color)',
-                    background: selectedOrder?.id === order.id ? 'rgba(255,255,255,0.02)' : 'var(--bg-card)',
+                    background: selectedOrder?.id === order.id ? '#FFFFFF' : 'var(--bg-card)',
                     cursor: 'pointer'
                   }}
                 >
@@ -131,7 +131,7 @@ export default function KitchenPage() {
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)', background: '#FFFFFF', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <span>Fulfillment:</span>
                     <strong style={{ color: 'var(--text-primary)' }}>
                       {order.fulfillmentType === 'dine_in' && `Table ${order.fulfillmentDetails.tableNumber}`}
@@ -167,16 +167,15 @@ export default function KitchenPage() {
               </div>
 
               <div className="drawer-body">
-                {/* Items and recipe guides */}
                 <h4 style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                  Dish Assembly details
+                  Ingredients assembly
                 </h4>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {selectedOrder.items.map((item) => {
                     const menuItem = state.menu.find(m => m.id === item.menuItemId);
                     return (
-                      <div key={item.menuItemId} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
+                      <div key={item.menuItemId} style={{ background: '#FFFFFF', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '14px', marginBottom: '8px' }}>
                           <span>{item.name}</span>
                           <span style={{ color: 'var(--accent-color)' }}>x{item.quantity}</span>
@@ -185,13 +184,13 @@ export default function KitchenPage() {
                         {/* Recipe list */}
                         {menuItem && (
                           <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                            <p style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>Recipe Recipe Items:</p>
+                            <p style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>Required Ingredients:</p>
                             {menuItem.recipe.map(r => {
                               const ingredient = state.inventory[r.ingredientId];
                               return (
                                 <div key={r.ingredientId} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                                   <span>- {ingredient?.name}</span>
-                                  <span>{r.quantity * item.quantity} units</span>
+                                  <span>{r.quantity * item.quantity} {r.ingredientId === 'paneer' || r.ingredientId === 'potatoes' || r.ingredientId === 'butter' || r.ingredientId === 'tea_leaves' || r.ingredientId === 'sugar' ? 'g' : r.ingredientId === 'batter' || r.ingredientId === 'mango' || r.ingredientId === 'milk' ? 'ml' : 'units'}</span>
                                 </div>
                               );
                             })}
@@ -224,7 +223,7 @@ export default function KitchenPage() {
                         setSelectedOrder(null);
                       }} 
                       className="btn btn-primary"
-                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)' }}
+                      style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 14px rgba(22, 163, 74, 0.2)' }}
                     >
                       <CheckSquare size={18} />
                       Mark Ready for Pickup
@@ -238,7 +237,7 @@ export default function KitchenPage() {
                         setSelectedOrder(null);
                       }} 
                       className="btn btn-primary"
-                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)' }}
+                      style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 14px rgba(22, 163, 74, 0.2)' }}
                     >
                       <CheckSquare size={18} />
                       Serve / Complete Ticket
@@ -252,7 +251,7 @@ export default function KitchenPage() {
                     }} 
                     className="btn btn-danger"
                   >
-                    Cancel & Refund Order
+                    Cancel & Refund Order (₹{selectedOrder.total.toFixed(2)})
                   </button>
                 </div>
               </div>

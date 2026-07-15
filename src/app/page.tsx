@@ -4,16 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   ShoppingBag, Plus, Minus, X, Coffee, ShieldAlert,
-  CreditCard, Smartphone, CheckCircle, RefreshCw, ChevronRight, UserCheck
+  CreditCard, Smartphone, CheckCircle, RefreshCw, ChevronRight, Check
 } from 'lucide-react';
 import { useRestaurant, MenuItem, Order } from '@/context/RestaurantContext';
 
 export default function CustomerPage() {
   const router = useRouter();
-  const { state, placeOrder, resetSystem } = useRestaurant();
+  const { state, placeOrder } = useRestaurant();
   
   // UI States
-  const [activeCategory, setActiveCategory] = useState<'All' | 'Burgers' | 'Sides' | 'Drinks'>('All');
+  const [activeCategory, setActiveCategory] = useState<'All' | 'Snacks' | 'Mains' | 'Drinks'>('All');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'fulfillment' | 'payment' | 'processing' | 'success'>('cart');
@@ -27,25 +27,9 @@ export default function CustomerPage() {
   const [licensePlate, setLicensePlate] = useState('');
   
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'upi'>('card');
-  const [processingStatus, setProcessingStatus] = useState('Connecting to payment gateway...');
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card'>('upi');
+  const [processingStatus, setProcessingStatus] = useState('Generating scannable UPI receipt...');
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
-
-  // Auth Status check for Role Selector
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
-
-  useEffect(() => {
-    // Check if admin session cookie exists (informational for UI switch helper)
-    fetch('/api/auth/session')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated) {
-          setIsAdminLoggedIn(true);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Cart operations
   const addToCart = (id: string) => {
@@ -86,18 +70,18 @@ export default function CustomerPage() {
     return true; // Counter pickup is pre-selected with time
   };
 
-  // Payment process simulation
-  const handleCheckoutSubmit = async () => {
+  // Real-time payment processing (Deep link launch and ledger update)
+  const handlePaymentInitiated = async () => {
     setCheckoutStep('processing');
-    setProcessingStatus('Securing payment tunnel...');
+    setProcessingStatus('Registering transaction with UPI network...');
     
-    // Simulate gateway delay
+    // Simulate gateway handoff
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    setProcessingStatus('Authorizing credit card / scanning UPI...');
+    setProcessingStatus('Awaiting merchant payment confirmation...');
     
     await new Promise((resolve) => setTimeout(resolve, 1200));
-    setProcessingStatus('Finalizing order ledger and inventory...');
-    
+    setProcessingStatus('Verifying ledger balances...');
+
     try {
       const orderItems = Object.entries(cart).map(([menuItemId, quantity]) => ({
         menuItemId,
@@ -127,10 +111,14 @@ export default function CustomerPage() {
     }
   };
 
-  const handleRoleNavigation = (path: string) => {
-    setShowRoleSelector(false);
-    router.push(path);
-  };
+  // Construct real scannable UPI deep link for Google Pay/PhonePe/Paytm
+  const subtotal = getCartSubtotal();
+  const tax = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST
+  const totalAmount = Math.round((subtotal + tax) * 100) / 100;
+  
+  // upi://pay?pa=merchant@upi&pn=BiteFlow%20Diner&am=150.00&cu=INR&tn=Order
+  const upiDeepLink = `upi://pay?pa=${state.merchantUpiId}&pn=BiteFlow%20Diner&am=${totalAmount.toFixed(2)}&cu=INR&tn=BiteFlow%20Order`;
+  const upiQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiDeepLink)}`;
 
   // Filter menu items
   const filteredMenu = state.menu.filter((item) => {
@@ -138,87 +126,13 @@ export default function CustomerPage() {
     return item.category === activeCategory;
   });
 
-  // Check if active tracking order exists (if any in list is received/preparing/ready)
+  // Check if active tracking order exists
   const activeTrackingOrder = state.orders
     .filter((o) => o.status !== 'completed' && o.status !== 'cancelled')
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
   return (
     <div className="device-container">
-      {/* Role Selector Badge */}
-      <button className="role-switch-badge" onClick={() => setShowRoleSelector(!showRoleSelector)}>
-        <span className={`dot ${isAdminLoggedIn ? 'active' : ''}`}></span>
-        Switch Role
-      </button>
-
-      {/* Role Selector overlay modal */}
-      {showRoleSelector && (
-        <div className="drawer-backdrop" onClick={() => setShowRoleSelector(false)} style={{ zIndex: 2000 }}>
-          <div className="drawer-sheet" style={{ zIndex: 2001 }}>
-            <div className="drawer-handle"></div>
-            <div className="drawer-header">
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Select App Context</h2>
-              <button 
-                onClick={() => setShowRoleSelector(false)} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="drawer-body">
-              <button 
-                onClick={() => handleRoleNavigation('/')} 
-                className="btn btn-secondary" 
-                style={{ justifyContent: 'space-between', marginBottom: '12px', borderColor: 'var(--accent-color)' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span>🍽️</span> Customer Ordering
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--accent-color)', fontWeight: '600' }}>Active</span>
-              </button>
-              <button 
-                onClick={() => handleRoleNavigation('/kitchen')} 
-                className="btn btn-secondary" 
-                style={{ justifyContent: 'space-between', marginBottom: '12px' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span>🍳</span> Kitchen Screen (KDS)
-                </span>
-                <ChevronRight size={16} />
-              </button>
-              <button 
-                onClick={() => handleRoleNavigation('/pos')} 
-                className="btn btn-secondary" 
-                style={{ justifyContent: 'space-between', marginBottom: '12px' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span>💵</span> Cashier Counter POS
-                </span>
-                <ChevronRight size={16} />
-              </button>
-              <button 
-                onClick={() => handleRoleNavigation('/admin')} 
-                className="btn btn-secondary" 
-                style={{ justifyContent: 'space-between', marginBottom: '24px' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span>📦</span> Stock & Business Dashboard
-                </span>
-                <ChevronRight size={16} />
-              </button>
-              <button 
-                onClick={() => { resetSystem(); setShowRoleSelector(false); }} 
-                className="btn btn-danger" 
-                style={{ height: '44px', fontSize: '13px' }}
-              >
-                <RefreshCw size={14} />
-                Reset Store Data to Default
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Smartphone frame */}
       <div className="smartphone-frame">
         {/* Header */}
@@ -227,15 +141,14 @@ export default function CustomerPage() {
             <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Welcome to
             </span>
-            <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px' }}>BiteFlow Diner</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px', color: 'var(--accent-color)' }}>BiteFlow Diner</h1>
           </div>
           
-          {/* Cart Icon trigger */}
           <button 
             onClick={() => { setCheckoutStep('cart'); setIsCartOpen(true); }}
             style={{ 
               position: 'relative', 
-              background: 'rgba(255,255,255,0.05)', 
+              background: '#FFFFFF', 
               border: '1px solid var(--border-color)', 
               width: '42px', 
               height: '42px', 
@@ -244,6 +157,7 @@ export default function CustomerPage() {
               alignItems: 'center', 
               justifyContent: 'center',
               color: 'var(--text-primary)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               cursor: 'pointer'
             }}
           >
@@ -255,7 +169,7 @@ export default function CustomerPage() {
                   top: '-4px', 
                   right: '-4px', 
                   background: 'var(--accent-color)', 
-                  color: '#000', 
+                  color: '#FFFFFF', 
                   fontSize: '10px', 
                   fontWeight: '700', 
                   borderRadius: '50%', 
@@ -284,7 +198,7 @@ export default function CustomerPage() {
                 setIsCartOpen(true);
               }}
               style={{ 
-                background: 'rgba(245, 158, 11, 0.08)',
+                background: 'rgba(234, 88, 12, 0.04)',
                 borderColor: 'var(--accent-color)',
                 display: 'flex',
                 alignItems: 'center',
@@ -297,19 +211,19 @@ export default function CustomerPage() {
                 <span className="spinner" style={{ color: 'var(--accent-color)', width: '16px', height: '16px', borderWidth: '2px' }}></span>
                 <div>
                   <p style={{ fontSize: '13px', fontWeight: '700' }}>Active Order {activeTrackingOrder.orderNumber}</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Fulfillment Status: {activeTrackingOrder.status.toUpperCase()}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Status: {activeTrackingOrder.status.toUpperCase()}</p>
                 </div>
               </div>
               <ChevronRight size={16} color="var(--accent-color)" />
             </div>
           )}
 
-          {/* Banner */}
+          {/* Saffron Banner decoration */}
           <div 
             style={{ 
               borderRadius: '20px', 
-              background: 'linear-gradient(135deg, #1f1a12 0%, #0d0d0f 100%)',
-              border: '1px solid var(--border-color)',
+              background: 'linear-gradient(135deg, #FFF7ED 0%, #FAF9F6 100%)',
+              border: '1px solid rgba(234, 88, 12, 0.15)',
               padding: '20px',
               marginBottom: '24px',
               position: 'relative',
@@ -318,29 +232,29 @@ export default function CustomerPage() {
           >
             <div style={{ position: 'relative', zIndex: 2 }}>
               <span style={{ background: 'var(--accent-glow)', color: 'var(--accent-color)', fontSize: '10px', fontWeight: '700', padding: '4px 8px', borderRadius: '20px' }}>
-                ⚡ FRESH TRIAL POS
+                🇮🇳 AUTHENTIC INDIAN TASTE
               </span>
-              <h2 style={{ fontSize: '20px', fontWeight: '800', marginTop: '12px', letterSpacing: '-0.5px' }}>
-                Delicious Food,<br />Instant Pickup.
+              <h2 style={{ fontSize: '20px', fontWeight: '800', marginTop: '12px', letterSpacing: '-0.5px', color: '#7C2D12' }}>
+                Pure Flavours.<br />Instant Table Serve.
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '6px' }}>
-                Zero delivery queues. Grab your fresh meals straight from the counter or curbside.
+                Pay directly via UPI. Skip billing queues. Scan & eat hot delicacies in minutes.
               </p>
             </div>
-            <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
+            <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.08 }}>
               <Coffee size={120} color="var(--accent-color)" />
             </div>
           </div>
 
           {/* Horizontal Category Filters */}
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '24px', paddingBottom: '4px' }}>
-            {(['All', 'Burgers', 'Sides', 'Drinks'] as const).map((cat) => (
+            {(['All', 'Snacks', 'Mains', 'Drinks'] as const).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 style={{
-                  background: activeCategory === cat ? 'var(--accent-color)' : 'rgba(255,255,255,0.04)',
-                  color: activeCategory === cat ? '#000' : 'var(--text-primary)',
+                  background: activeCategory === cat ? 'var(--accent-color)' : '#FFFFFF',
+                  color: activeCategory === cat ? '#FFFFFF' : 'var(--text-primary)',
                   border: '1px solid',
                   borderColor: activeCategory === cat ? 'var(--accent-color)' : 'var(--border-color)',
                   padding: '8px 16px',
@@ -349,6 +263,7 @@ export default function CustomerPage() {
                   fontWeight: '600',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.01)',
                   transition: 'all 0.2s ease'
                 }}
               >
@@ -358,12 +273,12 @@ export default function CustomerPage() {
           </div>
 
           {/* Menu Catalog Grid */}
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Menu Items
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Traditional Specialties
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {filteredMenu.map((item) => {
-              // Check stock level to disable add if unavailable
+              // Verify stock availability
               let minStock = 999;
               for (const recipeItem of item.recipe) {
                 const invItem = state.inventory[recipeItem.ingredientId];
@@ -383,15 +298,20 @@ export default function CustomerPage() {
                     alignItems: 'center', 
                     justifyContent: 'space-between',
                     padding: '14px',
-                    borderColor: isOutOfStock ? 'rgba(239, 68, 68, 0.1)' : 'var(--border-color)',
-                    opacity: isOutOfStock ? 0.65 : 1
+                    borderColor: isOutOfStock ? 'rgba(220, 38, 38, 0.1)' : 'var(--border-color)',
+                    opacity: isOutOfStock ? 0.6 : 1
                   }}
                 >
                   <div style={{ flex: 1, paddingRight: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <h4 style={{ fontSize: '15px', fontWeight: '700' }}>{item.name}</h4>
+                      {item.isVeg && (
+                        <span className="veg-badge" title="Vegetarian">
+                          <span className="veg-dot"></span>
+                        </span>
+                      )}
+                      <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#1E293B' }}>{item.name}</h4>
                       {isOutOfStock && (
-                        <span style={{ fontSize: '9px', background: 'var(--danger-glow)', color: 'var(--danger-color)', padding: '2px 6px', borderRadius: '10px', fontWeight: '700' }}>
+                        <span style={{ fontSize: '8px', background: 'var(--danger-glow)', color: 'var(--danger-color)', padding: '2px 6px', borderRadius: '10px', fontWeight: '700' }}>
                           SOLD OUT
                         </span>
                       )}
@@ -400,7 +320,7 @@ export default function CustomerPage() {
                       {item.description}
                     </p>
                     <p style={{ color: 'var(--accent-color)', fontWeight: '700', fontSize: '15px', marginTop: '8px' }}>
-                      ${item.price.toFixed(2)}
+                      ₹{item.price.toFixed(2)}
                     </p>
                   </div>
                   
@@ -411,15 +331,16 @@ export default function CustomerPage() {
                         style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
-                          background: 'rgba(255,255,255,0.05)', 
+                          background: '#FFFFFF', 
                           borderRadius: '12px',
                           border: '1px solid var(--border-color)',
-                          padding: '4px' 
+                          padding: '4px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                         }}
                       >
                         <button 
                           onClick={() => removeFromCart(item.id)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         >
                           <Minus size={14} />
                         </button>
@@ -427,7 +348,7 @@ export default function CustomerPage() {
                         <button 
                           onClick={() => addToCart(item.id)}
                           disabled={isOutOfStock}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         >
                           <Plus size={14} />
                         </button>
@@ -437,8 +358,8 @@ export default function CustomerPage() {
                         onClick={() => addToCart(item.id)}
                         disabled={isOutOfStock}
                         style={{
-                          background: 'var(--text-primary)',
-                          color: '#000',
+                          background: 'var(--accent-color)',
+                          color: '#FFFFFF',
                           border: 'none',
                           width: '36px',
                           height: '36px',
@@ -447,6 +368,7 @@ export default function CustomerPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
+                          boxShadow: '0 4px 10px rgba(234, 88, 12, 0.25)',
                           transition: 'transform 0.15s ease'
                         }}
                       >
@@ -479,9 +401,9 @@ export default function CustomerPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShoppingBag size={18} />
-                <span>View Order Cart ({getCartTotalItems()})</span>
+                <span>View Cart basket ({getCartTotalItems()})</span>
               </div>
-              <span style={{ fontWeight: '800' }}>${getCartSubtotal().toFixed(2)}</span>
+              <span style={{ fontWeight: '800' }}>₹{getCartSubtotal().toFixed(2)}</span>
             </button>
           </div>
         )}
@@ -494,10 +416,10 @@ export default function CustomerPage() {
               
               {/* Header based on step */}
               <div className="drawer-header">
-                {checkoutStep === 'cart' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Your Cart Basket</h2>}
-                {checkoutStep === 'fulfillment' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Fulfillment Detail</h2>}
-                {checkoutStep === 'payment' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Checkout Payment</h2>}
-                {checkoutStep === 'processing' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Processing Order</h2>}
+                {checkoutStep === 'cart' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Your Basket</h2>}
+                {checkoutStep === 'fulfillment' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Select Pickup</h2>}
+                {checkoutStep === 'payment' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Scan & Pay UPI</h2>}
+                {checkoutStep === 'processing' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Verifying UPI</h2>}
                 {checkoutStep === 'success' && <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Track Order</h2>}
                 
                 {checkoutStep !== 'processing' && (
@@ -517,8 +439,8 @@ export default function CustomerPage() {
                   <div>
                     {Object.keys(cart).length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
-                        <ShoppingBag size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                        <p>Your food cart is empty.</p>
+                        <ShoppingBag size={48} style={{ opacity: 0.15, marginBottom: '12px' }} />
+                        <p>Your basket is empty.</p>
                       </div>
                     ) : (
                       <div>
@@ -529,10 +451,10 @@ export default function CustomerPage() {
                               <div>
                                 <h4 style={{ fontSize: '14px', fontWeight: '700' }}>{item.name}</h4>
                                 <p style={{ color: 'var(--accent-color)', fontSize: '13px', fontWeight: '600', marginTop: '2px' }}>
-                                  ${(item.price * qty).toFixed(2)}
+                                  ₹{(item.price * qty).toFixed(2)}
                                 </p>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                                 <button onClick={() => removeFromCart(id)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', cursor: 'pointer' }}><Minus size={12} /></button>
                                 <span style={{ fontSize: '13px', fontWeight: '700', padding: '0 6px' }}>{qty}</span>
                                 <button onClick={() => addToCart(id)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', width: '28px', height: '28px', cursor: 'pointer' }}><Plus size={12} /></button>
@@ -542,19 +464,19 @@ export default function CustomerPage() {
                         })}
 
                         {/* Order Calculation Sheet */}
-                        <div style={{ marginTop: '24px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ marginTop: '24px', background: '#FFFFFF', padding: '16px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                             <span>Subtotal</span>
-                            <span>${getCartSubtotal().toFixed(2)}</span>
+                            <span>₹{getCartSubtotal().toFixed(2)}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                            <span>Taxes & Fees (8%)</span>
-                            <span>${(getCartSubtotal() * 0.08).toFixed(2)}</span>
+                            <span>GST (5%)</span>
+                            <span>₹{(getCartSubtotal() * 0.05).toFixed(2)}</span>
                           </div>
                           <div style={{ height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                            <span>Fulfillment Total</span>
-                            <span>${(getCartSubtotal() * 1.08).toFixed(2)}</span>
+                            <span>Payable Total</span>
+                            <span>₹{totalAmount.toFixed(2)}</span>
                           </div>
                         </div>
 
@@ -581,7 +503,7 @@ export default function CustomerPage() {
                           onClick={() => setFulfillmentType(type)}
                           style={{
                             flex: 1,
-                            background: fulfillmentType === type ? 'var(--accent-glow)' : 'rgba(255,255,255,0.03)',
+                            background: fulfillmentType === type ? 'var(--accent-glow)' : '#FFFFFF',
                             border: '1px solid',
                             borderColor: fulfillmentType === type ? 'var(--accent-color)' : 'var(--border-color)',
                             color: fulfillmentType === type ? 'var(--accent-color)' : 'var(--text-primary)',
@@ -616,7 +538,7 @@ export default function CustomerPage() {
                           ))}
                         </select>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                          We will serve the dishes directly to your table when ready.
+                          We will serve the piping hot dishes directly to your table when ready.
                         </p>
                       </div>
                     )}
@@ -635,7 +557,7 @@ export default function CustomerPage() {
                           <option value="1 hour">In 1 hour</option>
                         </select>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                          Pick up your order bags directly at the front counter.
+                          Pick up your order bags directly at the front counter display.
                         </p>
                       </div>
                     )}
@@ -646,7 +568,7 @@ export default function CustomerPage() {
                           <label className="form-label">Car Model / Make</label>
                           <input 
                             type="text" 
-                            placeholder="e.g. Toyota Camry" 
+                            placeholder="e.g. Maruti Swift" 
                             className="form-input"
                             value={carModel}
                             onChange={(e) => setCarModel(e.target.value)}
@@ -656,7 +578,7 @@ export default function CustomerPage() {
                           <label className="form-label">Car Color</label>
                           <input 
                             type="text" 
-                            placeholder="e.g. Midnight Black" 
+                            placeholder="e.g. Cherry Red" 
                             className="form-input"
                             value={carColor}
                             onChange={(e) => setCarColor(e.target.value)}
@@ -666,14 +588,14 @@ export default function CustomerPage() {
                           <label className="form-label">License Plate #</label>
                           <input 
                             type="text" 
-                            placeholder="e.g. 7XYZ99" 
+                            placeholder="e.g. DL-3C-AS-1234" 
                             className="form-input"
                             value={licensePlate}
                             onChange={(e) => setLicensePlate(e.target.value)}
                           />
                         </div>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                          Park in the designated Curbside slots and we will bring the bags to your car.
+                          Park in the designated Curbside slots and we will bring the bags to your car window.
                         </p>
                       </div>
                     )}
@@ -694,59 +616,65 @@ export default function CustomerPage() {
                   </div>
                 )}
 
-                {/* STEP 3: PAYMENT METHOD */}
+                {/* STEP 3: REAL-TIME UPI DEEP LINK & QR CODE */}
                 {checkoutStep === 'payment' && (
-                  <div>
-                    <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>
-                      Payment Methods
-                    </h3>
-                    
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                      Scan the QR code below with any UPI App (Google Pay, PhonePe, Paytm, BHIM) to pay <strong>₹{totalAmount.toFixed(2)}</strong>.
+                    </p>
+
+                    {/* Scannable QR Code */}
                     <div 
-                      onClick={() => setPaymentMethod('card')}
-                      className="glass-card" 
                       style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '16px', 
-                        borderColor: paymentMethod === 'card' ? 'var(--accent-color)' : 'var(--border-color)',
-                        background: paymentMethod === 'card' ? 'rgba(255,255,255,0.02)' : 'none',
-                        cursor: 'pointer'
+                        background: '#FFFFFF', 
+                        padding: '12px', 
+                        borderRadius: '20px', 
+                        display: 'inline-block',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        marginBottom: '20px'
                       }}
                     >
-                      <CreditCard size={24} color={paymentMethod === 'card' ? 'var(--accent-color)' : 'var(--text-secondary)'} />
-                      <div>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Credit / Debit Card</h4>
-                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Simulate payment swipe authorization</p>
-                      </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={upiQrUrl} 
+                        alt="UPI QR Code" 
+                        width="200" 
+                        height="200" 
+                        style={{ display: 'block' }}
+                      />
                     </div>
 
-                    <div 
-                      onClick={() => setPaymentMethod('upi')}
-                      className="glass-card" 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '16px', 
-                        borderColor: paymentMethod === 'upi' ? 'var(--accent-color)' : 'var(--border-color)',
-                        background: paymentMethod === 'upi' ? 'rgba(255,255,255,0.02)' : 'none',
-                        cursor: 'pointer'
-                      }}
+                    <div style={{ background: 'rgba(234, 88, 12, 0.03)', border: '1px solid rgba(234, 88, 12, 0.1)', padding: '12px', borderRadius: '12px', marginBottom: '24px', fontSize: '11px', color: 'var(--accent-color)', fontWeight: '600' }}>
+                      UPI ID: {state.merchantUpiId}
+                    </div>
+
+                    {/* Mobile App Handoff link */}
+                    <a 
+                      href={upiDeepLink}
+                      className="btn btn-primary"
+                      style={{ display: 'flex', width: '100%', marginBottom: '12px', textDecoration: 'none' }}
                     >
-                      <Smartphone size={24} color={paymentMethod === 'upi' ? 'var(--accent-color)' : 'var(--text-secondary)'} />
-                      <div>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Digital Wallet / UPI</h4>
-                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>UPI scan simulator code</p>
-                      </div>
-                    </div>
+                      <Smartphone size={18} />
+                      Pay via Installed UPI App
+                    </a>
 
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '36px' }}>
-                      <button onClick={() => setCheckoutStep('fulfillment')} className="btn btn-secondary" style={{ flex: 1 }}>
-                        Back
-                      </button>
-                      <button onClick={handleCheckoutSubmit} className="btn btn-primary" style={{ flex: 2 }}>
-                        Authorize Payment: ${(getCartSubtotal() * 1.08).toFixed(2)}
-                      </button>
-                    </div>
+                    <button 
+                      onClick={handlePaymentInitiated} 
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', width: '100%', borderColor: 'var(--success-color)', color: 'var(--success-color)' }}
+                    >
+                      <Check size={18} />
+                      Confirm Payment Success
+                    </button>
+
+                    <button 
+                      onClick={() => setCheckoutStep('fulfillment')} 
+                      className="btn btn-secondary" 
+                      style={{ width: '100%', border: 'none', background: 'none', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}
+                    >
+                      Back
+                    </button>
                   </div>
                 )}
 
@@ -754,7 +682,7 @@ export default function CustomerPage() {
                 {checkoutStep === 'processing' && (
                   <div style={{ textAlign: 'center', padding: '40px 0' }}>
                     <div className="spinner" style={{ width: '48px', height: '48px', borderWidth: '4px', color: 'var(--accent-color)', margin: '0 auto 24px auto' }}></div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>Authenticating Payment</h3>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>Validating Ledger</h3>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{processingStatus}</p>
                   </div>
                 )}
@@ -765,9 +693,9 @@ export default function CustomerPage() {
                     <div style={{ color: 'var(--success-color)', marginBottom: '16px' }}>
                       <CheckCircle size={48} style={{ margin: '0 auto' }} />
                     </div>
-                    <h3 style={{ fontSize: '20px', fontWeight: '800' }}>Payment Successful!</h3>
+                    <h3 style={{ fontSize: '20px', fontWeight: '800' }}>Order Placed!</h3>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
-                      Order number <strong style={{ color: 'var(--accent-color)' }}>{lastPlacedOrder.orderNumber}</strong> placed
+                      Order number <strong style={{ color: 'var(--accent-color)' }}>{lastPlacedOrder.orderNumber}</strong>
                     </p>
 
                     {/* Receipt breakdown */}
@@ -776,9 +704,9 @@ export default function CustomerPage() {
                       style={{ 
                         margin: '24px 0 16px 0', 
                         padding: '16px', 
-                        background: 'rgba(255,255,255,0.01)', 
+                        background: '#FFFFFF', 
                         textAlign: 'left',
-                        borderColor: 'rgba(255,255,255,0.05)'
+                        borderColor: 'var(--border-color)'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>
@@ -788,19 +716,19 @@ export default function CustomerPage() {
                       {lastPlacedOrder.items.map((item) => (
                         <div key={item.menuItemId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
                           <span>{item.name} <span style={{ color: 'var(--text-secondary)' }}>x{item.quantity}</span></span>
-                          <span>${(item.price * item.quantity).toFixed(2)}</span>
+                          <span>₹{(item.price * item.quantity).toFixed(2)}</span>
                         </div>
                       ))}
                       <div style={{ height: '1px', background: 'var(--border-color)', margin: '12px 0' }}></div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700' }}>
                         <span>Amount Paid ({lastPlacedOrder.paymentMethod.toUpperCase()})</span>
-                        <span>${lastPlacedOrder.total.toFixed(2)}</span>
+                        <span>₹{lastPlacedOrder.total.toFixed(2)}</span>
                       </div>
 
-                      <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px' }}>
+                      <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--text-secondary)', background: '#FAF9F6', padding: '10px', borderRadius: '8px' }}>
                         📍 <strong>Fulfillment:</strong>{' '}
                         {lastPlacedOrder.fulfillmentType === 'dine_in' && `Dine-In (Table ${lastPlacedOrder.fulfillmentDetails.tableNumber})`}
-                        {lastPlacedOrder.fulfillmentType === 'takeaway' && `Counter Pickup (Estimated ${lastPlacedOrder.fulfillmentDetails.pickupTime})`}
+                        {lastPlacedOrder.fulfillmentType === 'takeaway' && `Counter Pickup (${lastPlacedOrder.fulfillmentDetails.pickupTime})`}
                         {lastPlacedOrder.fulfillmentType === 'curbside' && `Curb-Side (${lastPlacedOrder.fulfillmentDetails.carColor} ${lastPlacedOrder.fulfillmentDetails.carModel} - ${lastPlacedOrder.fulfillmentDetails.licensePlate})`}
                       </div>
                     </div>
@@ -808,11 +736,10 @@ export default function CustomerPage() {
                     {/* LIVE TRACKING TIMELINE */}
                     <div style={{ textAlign: 'left', margin: '24px 0 32px 0' }}>
                       <h4 style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                        Live Cooking Timeline
+                        Cooking Timeline
                       </h4>
                       <div style={{ position: 'relative', paddingLeft: '28px' }}>
-                        {/* Vertical line connecting steps */}
-                        <div style={{ position: 'absolute', left: '8px', top: '8px', width: '2px', height: '80%', background: 'rgba(255,255,255,0.05)' }}></div>
+                        <div style={{ position: 'absolute', left: '8px', top: '8px', width: '2px', height: '80%', background: 'rgba(0,0,0,0.06)' }}></div>
                         
                         {/* Step 1 */}
                         <div style={{ position: 'relative', marginBottom: '20px' }}>
@@ -824,12 +751,12 @@ export default function CustomerPage() {
                               width: '18px', 
                               height: '18px', 
                               borderRadius: '50%', 
-                              background: '#F59E0B', 
+                              background: '#EA580C', 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center',
                               fontSize: '10px',
-                              color: '#000',
+                              color: '#FFF',
                               fontWeight: '700'
                             }}
                           >
@@ -849,12 +776,12 @@ export default function CustomerPage() {
                               width: '18px', 
                               height: '18px', 
                               borderRadius: '50%', 
-                              background: (lastPlacedOrder.status === 'preparing' || lastPlacedOrder.status === 'ready' || lastPlacedOrder.status === 'completed') ? '#F59E0B' : 'rgba(255,255,255,0.05)', 
+                              background: (lastPlacedOrder.status === 'preparing' || lastPlacedOrder.status === 'ready' || lastPlacedOrder.status === 'completed') ? '#EA580C' : 'rgba(0,0,0,0.06)', 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center',
                               fontSize: '10px',
-                              color: '#000',
+                              color: '#FFF',
                               fontWeight: '700'
                             }}
                           >
@@ -863,7 +790,7 @@ export default function CustomerPage() {
                           <h5 style={{ fontSize: '13px', fontWeight: '700', color: (lastPlacedOrder.status === 'preparing' || lastPlacedOrder.status === 'ready' || lastPlacedOrder.status === 'completed') ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                             Preparing in Kitchen
                           </h5>
-                          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Chef is assembling your fresh foods</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Chef is assembling your fresh meal</p>
                         </div>
 
                         {/* Step 3 */}
@@ -876,12 +803,12 @@ export default function CustomerPage() {
                               width: '18px', 
                               height: '18px', 
                               borderRadius: '50%', 
-                              background: (lastPlacedOrder.status === 'ready' || lastPlacedOrder.status === 'completed') ? '#10B981' : 'rgba(255,255,255,0.05)', 
+                              background: (lastPlacedOrder.status === 'ready' || lastPlacedOrder.status === 'completed') ? '#16A34A' : 'rgba(0,0,0,0.06)', 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center',
                               fontSize: '10px',
-                              color: '#000',
+                              color: '#FFF',
                               fontWeight: '700'
                             }}
                           >

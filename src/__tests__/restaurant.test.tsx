@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const TestComponent = ({ onState }: { onState: (actions: any) => void }) => {
   const actions = useRestaurant();
   
-  // Expose context actions to test scope
   React.useEffect(() => {
     onState(actions);
   }, [actions, onState]);
@@ -18,7 +17,6 @@ const TestComponent = ({ onState }: { onState: (actions: any) => void }) => {
 describe('BiteFlow Restaurant Context State Engine', () => {
   
   beforeEach(() => {
-    // Clear localStorage to isolate tests
     localStorage.clear();
   });
   
@@ -34,7 +32,7 @@ describe('BiteFlow Restaurant Context State Engine', () => {
     expect(actions).not.toBeNull();
     expect(actions.state.lastOrderNumber).toBe(1000);
 
-    // Place an order for 1 Cheeseburger
+    // Place an order for 1 Paneer Butter Masala Roll (m1)
     act(() => {
       actions.placeOrder(
         [{ menuItemId: 'm1', quantity: 1 }],
@@ -58,22 +56,22 @@ describe('BiteFlow Restaurant Context State Engine', () => {
       </RestaurantProvider>
     );
 
-    // Default opening expected drawer cash balance is $150
-    expect(actions.state.cashSession.expectedBalance).toBe(150);
+    // Default opening expected drawer cash balance is Rs 2500
+    expect(actions.state.cashSession.expectedBalance).toBe(2500);
 
-    // Perform a cash-in adjustment (e.g. adding coins float)
+    // Perform a cash-in adjustment (e.g. adding float change)
     act(() => {
-      actions.adjustDrawerCash(50, 'cash_in', 'Register coins replenishment');
+      actions.adjustDrawerCash(500, 'cash_in', 'Register coins replenishment');
     });
 
-    expect(actions.state.cashSession.expectedBalance).toBe(200);
+    expect(actions.state.cashSession.expectedBalance).toBe(3000);
 
-    // Perform a cash payout adjustment (e.g. paying supplier for wraps)
+    // Perform a cash payout adjustment (e.g. paying supplier for milk)
     act(() => {
-      actions.adjustDrawerCash(35, 'payout', 'Supplier payout for tortilla wraps');
+      actions.adjustDrawerCash(350, 'payout', 'Supplier payout for fresh milk');
     });
 
-    expect(actions.state.cashSession.expectedBalance).toBe(165);
+    expect(actions.state.cashSession.expectedBalance).toBe(2650);
   });
 
   it('should trigger auto-stocking replenishment when stock level drops below threshold', () => {
@@ -92,23 +90,23 @@ describe('BiteFlow Restaurant Context State Engine', () => {
 
     expect(actions.state.isAutoStockEnabled).toBe(true);
 
-    const initialBuns = actions.state.inventory.bun.stock;
-    expect(initialBuns).toBe(50); // Initial burger buns stock count
+    const initialPavBuns = actions.state.inventory.pav_bun.stock;
+    expect(initialPavBuns).toBe(60); // Initial pav buns stock count is 60
 
-    // Order 42 Classic Cheeseburgers (requires 42 buns)
-    // 50 - 42 = 8 buns left. 8 is <= bun threshold (10).
-    // Auto-restocking should trigger (+50 buns restock quantity)
-    // Final stock level should be 50 - 42 + 50 = 58 buns.
+    // Order 25 Pav Bhajis (requires 50 pav buns)
+    // 60 - 50 = 10 pav buns left. 10 is <= pav_bun threshold (12).
+    // Auto-restocking should trigger (+60 pav buns restock quantity)
+    // Final stock level should be 60 - 50 + 60 = 70 pav buns.
     act(() => {
       actions.placeOrder(
-        [{ menuItemId: 'm1', quantity: 42 }],
+        [{ menuItemId: 'm2', quantity: 25 }],
         'takeaway',
         { pickupTime: '20 mins' },
         'card'
       );
     });
 
-    expect(actions.state.inventory.bun.stock).toBe(58);
+    expect(actions.state.inventory.pav_bun.stock).toBe(70);
     expect(actions.state.restockExpenses).toBeGreaterThan(0);
   });
 });

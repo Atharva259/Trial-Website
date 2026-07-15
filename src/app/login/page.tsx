@@ -2,14 +2,14 @@
 
 import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, User, LogIn, ArrowRight } from 'lucide-react';
+import { Lock, Mail, LogIn, ArrowRight } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get('redirect') || '/';
 
-  const [personalId, setPersonalId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,17 +25,16 @@ function LoginContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ personalId, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Redirect to protected route
         router.push(redirectPath);
         router.refresh();
       } else {
-        setError(data.error || 'Authentication failed. Please try again.');
+        setError(data.error || 'Authentication failed. Please verify your email or password.');
       }
     } catch (err) {
       setError('A network error occurred. Please verify your connection.');
@@ -45,7 +44,6 @@ function LoginContent() {
   };
 
   const handleGuestAccess = () => {
-    // Customers order as guests
     router.push('/');
   };
 
@@ -59,19 +57,19 @@ function LoginContent() {
               width: '64px', 
               height: '64px', 
               borderRadius: '20px', 
-              background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+              background: 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25)',
+              boxShadow: '0 8px 24px rgba(234, 88, 12, 0.2)',
               marginBottom: '16px'
             }}
           >
-            <Lock size={32} color="#000000" />
+            <Lock size={32} color="#FFFFFF" />
           </div>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px' }}>BiteFlow</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>BiteFlow</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
-            Secure Restaurant Terminal Sign-In
+            Authorized Terminal Sign-In
           </p>
         </div>
 
@@ -84,7 +82,7 @@ function LoginContent() {
                   style={{ 
                     background: 'var(--danger-glow)', 
                     border: '1px solid var(--danger-color)', 
-                    color: '#ff6b6b',
+                    color: 'var(--danger-color)',
                     padding: '12px 16px',
                     borderRadius: '12px',
                     fontSize: '13px',
@@ -97,18 +95,18 @@ function LoginContent() {
               )}
 
               <div className="form-group">
-                <label className="form-label">Personal ID</label>
+                <label className="form-label">Authorized Email</label>
                 <div style={{ position: 'relative' }}>
-                  <User 
+                  <Mail 
                     size={18} 
                     style={{ position: 'absolute', left: '16px', top: '15px', color: 'var(--text-secondary)' }} 
                   />
                   <input
-                    type="text"
+                    type="email"
                     required
-                    placeholder="Enter Admin ID"
-                    value={personalId}
-                    onChange={(e) => setPersonalId(e.target.value)}
+                    placeholder="Enter email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="form-input"
                     style={{ paddingLeft: '48px' }}
                     disabled={loading}
@@ -150,7 +148,7 @@ function LoginContent() {
                 ) : (
                   <>
                     <LogIn size={18} />
-                    Verify Admin ID
+                    Verify Credentials
                   </>
                 )}
               </button>
@@ -169,7 +167,7 @@ function LoginContent() {
               disabled={loading}
               id="guest_checkout_btn"
             >
-              Order Foods (Guest Access)
+              Back to Customer Menu
               <ArrowRight size={18} />
             </button>
           </div>
@@ -180,21 +178,26 @@ function LoginContent() {
             style={{ 
               marginTop: '40px',
               padding: '16px', 
-              background: 'rgba(255,255,255,0.02)', 
-              borderColor: 'rgba(255,255,255,0.05)',
+              background: '#FFFFFF', 
+              borderColor: 'var(--border-color)',
               textAlign: 'center'
             }}
           >
-            <p style={{ fontSize: '11px', fontWeight: '600', color: 'var(--accent-color)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              🔑 Trial Admin Credentials
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent-color)', textTransform: 'uppercase', marginBottom: '8px' }}>
+              🔑 Staff Portal login info
             </p>
-            <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '12px', color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div>
-                <span style={{ color: 'var(--text-secondary)' }}>ID:</span> admin-trial
+                <span style={{ color: 'var(--text-secondary)' }}>Admin:</span> admin@biteflow.in
               </div>
-              <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
               <div>
-                <span style={{ color: 'var(--text-secondary)' }}>Pass:</span> security-first-2026
+                <span style={{ color: 'var(--text-secondary)' }}>Kitchen:</span> chef@biteflow.in
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>Cashier:</span> cashier@biteflow.in
+              </div>
+              <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '4px', fontWeight: '600' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Password:</span> security-first-2026
               </div>
             </div>
           </div>

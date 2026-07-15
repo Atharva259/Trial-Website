@@ -9,7 +9,7 @@ export interface Ingredient {
   stock: number;
   threshold: number;
   restockQuantity: number;
-  costPerUnit: number;
+  costPerUnit: number; // in INR
 }
 
 export interface RecipeItem {
@@ -21,10 +21,11 @@ export interface MenuItem {
   id: string;
   name: string;
   description: string;
-  price: number;
-  category: 'Burgers' | 'Sides' | 'Drinks';
+  price: number; // in INR
+  category: 'Snacks' | 'Mains' | 'Drinks';
   recipe: RecipeItem[];
   imageUrl: string;
+  isVeg: boolean;
 }
 
 export type OrderStatus = 'received' | 'preparing' | 'ready' | 'completed' | 'cancelled';
@@ -32,7 +33,7 @@ export type OrderStatus = 'received' | 'preparing' | 'ready' | 'completed' | 'ca
 export interface OrderItem {
   menuItemId: string;
   name: string;
-  price: number;
+  price: number; // in INR
   quantity: number;
 }
 
@@ -67,9 +68,9 @@ export interface CashTransaction {
 
 export interface CashSession {
   openingBalance: number;
-  cashIn: number; // additional added
-  cashOut: number; // payouts
-  sales: number; // total cash sales
+  cashIn: number;
+  cashOut: number;
+  sales: number;
   refunds: number;
   expectedBalance: number;
   actualBalance?: number;
@@ -100,6 +101,7 @@ export interface RestaurantState {
   cogs: number;
   restockExpenses: number;
   lastOrderNumber: number;
+  merchantUpiId: string;
 }
 
 interface RestaurantContextProps {
@@ -116,98 +118,108 @@ interface RestaurantContextProps {
   adjustDrawerCash: (amount: number, type: 'cash_in' | 'payout', reason: string) => void;
   restockIngredient: (ingredientId: string, quantity: number) => void;
   toggleAutoStock: (enabled: boolean) => void;
+  updateMerchantUpi: (upi: string) => void;
   resetSystem: () => void;
 }
 
-// Initial Data definitions
+// Initial Indian Inventory (quantities and costs in INR)
 const INITIAL_INVENTORY: Record<string, Ingredient> = {
-  bun: { id: 'bun', name: 'Burger Bun', stock: 50, threshold: 10, restockQuantity: 50, costPerUnit: 0.20 },
-  patty: { id: 'patty', name: 'Beef Patty', stock: 40, threshold: 10, restockQuantity: 40, costPerUnit: 1.00 },
-  cheese: { id: 'cheese', name: 'Cheese Slice', stock: 60, threshold: 15, restockQuantity: 60, costPerUnit: 0.15 },
-  lettuce: { id: 'lettuce', name: 'Lettuce Leaf', stock: 30, threshold: 8, restockQuantity: 30, costPerUnit: 0.10 },
-  chicken: { id: 'chicken', name: 'Chicken Breast', stock: 20, threshold: 5, restockQuantity: 20, costPerUnit: 1.50 },
-  syrup: { id: 'syrup', name: 'Soda Syrup', stock: 100, threshold: 20, restockQuantity: 100, costPerUnit: 0.05 },
-  coffee: { id: 'coffee', name: 'Coffee Beans (Portion)', stock: 100, threshold: 20, restockQuantity: 100, costPerUnit: 0.08 },
-  milk: { id: 'milk', name: 'Milk (Portion)', stock: 40, threshold: 10, restockQuantity: 40, costPerUnit: 0.30 },
-  sugar: { id: 'sugar', name: 'Sugar Pack', stock: 120, threshold: 30, restockQuantity: 120, costPerUnit: 0.02 },
+  paneer: { id: 'paneer', name: 'Paneer (g)', stock: 5000, threshold: 1000, restockQuantity: 5000, costPerUnit: 0.25 }, // 25 paise per gram (Rs 250/kg)
+  maida_wrap: { id: 'maida_wrap', name: 'Kathi Roll Wrap', stock: 50, threshold: 10, restockQuantity: 50, costPerUnit: 5.00 }, // Rs 5 each
+  potatoes: { id: 'potatoes', name: 'Potatoes (g)', stock: 8000, threshold: 1500, restockQuantity: 8000, costPerUnit: 0.02 }, // Rs 20/kg
+  pav_bun: { id: 'pav_bun', name: 'Pav Buns', stock: 60, threshold: 12, restockQuantity: 60, costPerUnit: 3.00 }, // Rs 3 each
+  butter: { id: 'butter', name: 'Butter (g)', stock: 2000, threshold: 400, restockQuantity: 2000, costPerUnit: 0.50 }, // Rs 500/kg
+  batter: { id: 'batter', name: 'Dosa Batter (ml)', stock: 10000, threshold: 2000, restockQuantity: 10000, costPerUnit: 0.05 }, // 5 paise per ml
+  mango: { id: 'mango', name: 'Mango Pulp (ml)', stock: 4000, threshold: 800, restockQuantity: 4000, costPerUnit: 0.15 },
+  milk: { id: 'milk', name: 'Milk (ml)', stock: 5000, threshold: 1000, restockQuantity: 5000, costPerUnit: 0.06 }, // Rs 60/litre
+  tea_leaves: { id: 'tea_leaves', name: 'Tea Leaves (g)', stock: 1000, threshold: 200, restockQuantity: 1000, costPerUnit: 0.30 }, // Rs 300/kg
+  sugar: { id: 'sugar', name: 'Sugar (g)', stock: 3000, threshold: 600, restockQuantity: 3000, costPerUnit: 0.04 }, // Rs 40/kg
 };
 
+// Localised Premium Indian Food Menu
 const INITIAL_MENU: MenuItem[] = [
   {
     id: 'm1',
-    name: 'Classic Cheeseburger',
-    description: 'Juicy beef patty, melted cheddar cheese, fresh lettuce, toasted buns.',
-    price: 8.99,
-    category: 'Burgers',
+    name: 'Paneer Butter Masala Roll',
+    description: 'Fresh soft cottage cheese chunks tossed in rich butter gravy, rolled in a flaky kathi wrap.',
+    price: 180,
+    category: 'Mains',
     recipe: [
-      { ingredientId: 'bun', quantity: 1 },
-      { ingredientId: 'patty', quantity: 1 },
-      { ingredientId: 'cheese', quantity: 1 },
-      { ingredientId: 'lettuce', quantity: 1 },
+      { ingredientId: 'paneer', quantity: 80 },
+      { ingredientId: 'maida_wrap', quantity: 1 },
+      { ingredientId: 'butter', quantity: 15 },
     ],
-    imageUrl: '/placeholder_burger.jpg',
+    imageUrl: '/paneer_roll.jpg',
+    isVeg: true,
   },
   {
     id: 'm2',
-    name: 'Double Beast Burger',
-    description: 'Two juicy beef patties, double cheddar cheese, fresh lettuce, toasted buns.',
-    price: 12.99,
-    category: 'Burgers',
+    name: 'Double Butter Pav Bhaji',
+    description: 'Spiced mashed vegetable curry slow-cooked with aromatic spices, served with two pav buns toasted in butter.',
+    price: 150,
+    category: 'Snacks',
     recipe: [
-      { ingredientId: 'bun', quantity: 1 },
-      { ingredientId: 'patty', quantity: 2 },
-      { ingredientId: 'cheese', quantity: 2 },
-      { ingredientId: 'lettuce', quantity: 1 },
+      { ingredientId: 'potatoes', quantity: 150 },
+      { ingredientId: 'pav_bun', quantity: 2 },
+      { ingredientId: 'butter', quantity: 30 },
     ],
-    imageUrl: '/placeholder_double.jpg',
+    imageUrl: '/pav_bhaji.jpg',
+    isVeg: true,
   },
   {
     id: 'm3',
-    name: 'Crispy Chicken Wrap',
-    description: 'Crispy chicken breast, fresh lettuce wrapped in a warm tortilla.',
-    price: 9.49,
-    category: 'Burgers', // Categorised as Burgers/Mains for simple mobile listing
+    name: 'Crispy Masala Dosa',
+    description: 'Golden thin crepe made of fermented rice-lentil batter, stuffed with spiced potato mash.',
+    price: 120,
+    category: 'Mains',
     recipe: [
-      { ingredientId: 'chicken', quantity: 1 },
-      { ingredientId: 'lettuce', quantity: 1 },
+      { ingredientId: 'batter', quantity: 150 },
+      { ingredientId: 'potatoes', quantity: 100 },
+      { ingredientId: 'butter', quantity: 10 },
     ],
-    imageUrl: '/placeholder_wrap.jpg',
+    imageUrl: '/masala_dosa.jpg',
+    isVeg: true,
   },
   {
     id: 'm4',
-    name: 'House Green Salad',
-    description: 'Fresh organic garden lettuce leaves with vinaigrette.',
-    price: 7.49,
-    category: 'Sides',
+    name: 'Saffron Raj Kachori',
+    description: 'King of kachoris! Large crispy shell stuffed with sprouts, yogurt, sweet chutney, and saffron threads.',
+    price: 90,
+    category: 'Snacks',
     recipe: [
-      { ingredientId: 'lettuce', quantity: 2 },
+      { ingredientId: 'potatoes', quantity: 50 },
+      { ingredientId: 'sugar', quantity: 10 },
     ],
-    imageUrl: '/placeholder_salad.jpg',
+    imageUrl: '/raj_kachori.jpg',
+    isVeg: true,
   },
   {
     id: 'm5',
-    name: 'Craft Iced Latte',
-    description: 'Premium espresso poured over ice and fresh milk, lightly sweetened.',
-    price: 4.99,
+    name: 'Mango Lassi Iced Shake',
+    description: 'Thick yogurt shake blended with sweet Alphonso mango pulp, cardamom, and saffron garnish.',
+    price: 80,
     category: 'Drinks',
     recipe: [
-      { ingredientId: 'coffee', quantity: 1 },
-      { ingredientId: 'milk', quantity: 1 },
-      { ingredientId: 'sugar', quantity: 1 },
+      { ingredientId: 'mango', quantity: 100 },
+      { ingredientId: 'milk', quantity: 100 },
+      { ingredientId: 'sugar', quantity: 15 },
     ],
-    imageUrl: '/placeholder_latte.jpg',
+    imageUrl: '/mango_lassi.jpg',
+    isVeg: true,
   },
   {
     id: 'm6',
-    name: 'Fountain Soda',
-    description: 'Refreshing carbonated soft drink served over ice.',
-    price: 2.49,
+    name: 'Masala Cutting Chai',
+    description: 'Brewed milk tea infused with crushed ginger, fresh cardamom, cloves, and cinnamon.',
+    price: 40,
     category: 'Drinks',
     recipe: [
-      { ingredientId: 'syrup', quantity: 1 },
-      { ingredientId: 'sugar', quantity: 1 },
+      { ingredientId: 'tea_leaves', quantity: 5 },
+      { ingredientId: 'milk', quantity: 50 },
+      { ingredientId: 'sugar', quantity: 8 },
     ],
-    imageUrl: '/placeholder_soda.jpg',
+    imageUrl: '/masala_chai.jpg',
+    isVeg: true,
   },
 ];
 
@@ -216,12 +228,12 @@ const DEFAULT_STATE: RestaurantState = {
   orders: [],
   inventory: INITIAL_INVENTORY,
   cashSession: {
-    openingBalance: 150, // Default drawer cash
+    openingBalance: 2500, // Rs 2500 opening float for drawer cash
     cashIn: 0,
     cashOut: 0,
     sales: 0,
     refunds: 0,
-    expectedBalance: 150,
+    expectedBalance: 2500,
     status: 'open',
     openedAt: new Date().toISOString(),
     transactions: [],
@@ -232,10 +244,11 @@ const DEFAULT_STATE: RestaurantState = {
   cogs: 0,
   restockExpenses: 0,
   lastOrderNumber: 1000,
+  merchantUpiId: 'admin@okaxis', // Default merchant account to test real-time payments
 };
 
 const RestaurantContext = createContext<RestaurantContextProps | undefined>(undefined);
-const STORAGE_KEY = 'biteflow_restaurant_state';
+const STORAGE_KEY = 'biteflow_restaurant_state_v2';
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<RestaurantState>(DEFAULT_STATE);
@@ -261,7 +274,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [state, isLoaded]);
 
-  // 3. Dynamic Refresh (Cross-Tab Sync) via Storage Listener
+  // 3. Cross-Tab Sync via Storage Listener
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
@@ -300,7 +313,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else if (type === 'payout') cashOut += amount;
     else if (type === 'sale') sales += amount;
     else if (type === 'refund') refunds += amount;
-    else if (type === 'restock') cashOut += amount; // restocking paid out of drawer
+    else if (type === 'restock') cashOut += amount;
 
     const expectedBalance = session.openingBalance + cashIn - cashOut + sales - refunds;
 
@@ -344,7 +357,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           addedLogs.push({
             id: Math.random().toString(36).substring(2, 9),
             type: 'restock',
-            description: `Auto-restocked ${restockQty} units of ${ingredient.name} due to low stock`,
+            description: `Auto-purchased ${restockQty} units of ${ingredient.name} due to low warning limit`,
             amount: -cost,
             cogs: 0,
             timestamp: new Date().toISOString(),
@@ -368,7 +381,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     fulfillmentDetails: Order['fulfillmentDetails'],
     paymentMethod: Order['paymentMethod']
   ): Order | null => {
-    // 1. Validate ingredient availability before placement
     let totalCogs = 0;
     let subtotal = 0;
     const items: OrderItem[] = [];
@@ -385,24 +397,20 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         quantity: input.quantity,
       });
 
-      // Calculate COGS and verify stock bounds
       for (const recipeItem of menuItem.recipe) {
         const ingredient = state.inventory[recipeItem.ingredientId];
         if (!ingredient) return null;
         
-        // Cost analysis
         totalCogs += recipeItem.quantity * input.quantity * ingredient.costPerUnit;
 
-        // Strict stock check (if auto stock is disabled, block if stock drops below 0)
         const required = recipeItem.quantity * input.quantity;
         if (!state.isAutoStockEnabled && ingredient.stock < required) {
-          // Insufficient stock and auto-stocking is disabled
           throw new Error(`Insufficient stock for ${ingredient.name}`);
         }
       }
     }
 
-    const tax = Math.round(subtotal * 0.08 * 100) / 100; // 8% tax
+    const tax = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST on food services in India
     const total = Math.round((subtotal + tax) * 100) / 100;
 
     const nextOrderNum = state.lastOrderNumber + 1;
@@ -419,12 +427,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       fulfillmentType,
       fulfillmentDetails,
       paymentMethod,
-      paymentStatus: paymentMethod === 'cash' ? 'pending' : 'success', // cash pending until cashier drawer logs it
+      paymentStatus: paymentMethod === 'cash' ? 'pending' : 'success', // card/upi processed instantly in mobile deep links
       timestamp: new Date().toISOString(),
     };
 
     setState((prev) => {
-      // 1. Process ingredient stock deductions and auto-stock triggers
       let currentInventory = { ...prev.inventory };
       let totalAutoRestockCost = 0;
       let allNewLogs: LedgerLog[] = [];
@@ -443,24 +450,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         allNewLogs = [...allNewLogs, ...result.newLogs];
       }
 
-      // 2. Update cash register session
       let cashSession = { ...prev.cashSession };
       
-      // If paid digitally or counter order paid in cash (processed immediately)
-      if (paymentMethod !== 'cash' && cashSession.status === 'open') {
-        // Digital sales don't go to drawer cash balance directly (they increase revenue sheet), 
-        // but cash POS payments do
-      } else if (paymentMethod === 'cash' && cashSession.status === 'open') {
-        // Record Cash Sale in register
+      if (paymentMethod === 'cash' && cashSession.status === 'open') {
         cashSession = addTransactionToSession(
           cashSession,
           'sale',
           total,
-          `POS Sale ${orderNumber}`
+          `POS Cash Sale ${orderNumber}`
         );
       }
 
-      // Record standard transaction sale in ledger
       const saleLog: LedgerLog = {
         id: Math.random().toString(36).substring(2, 9),
         type: 'sale',
@@ -472,14 +472,13 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       allNewLogs.push(saleLog);
 
-      // If auto-stock triggered, record that expense in ledger & cash session
       if (totalAutoRestockCost > 0) {
         if (cashSession.status === 'open') {
           cashSession = addTransactionToSession(
             cashSession,
             'restock',
             totalAutoRestockCost,
-            `Auto-restocked raw materials`
+            `Auto-purchased raw ingredients`
           );
         }
       }
@@ -508,7 +507,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const updatedOrders = [...prev.orders];
       const order = updatedOrders[orderIndex];
 
-      // Handle Cash payment confirmation when order is served/completed
       let cashSession = { ...prev.cashSession };
       let paymentStatus = order.paymentStatus;
 
@@ -516,15 +514,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         paymentStatus = 'success';
       }
 
-      // Handle Cancellation refunds
       let refundedRevenue = 0;
-      let refundedCogs = 0;
       const allNewLogs: LedgerLog[] = [];
 
       if (status === 'cancelled' && order.status !== 'cancelled') {
         paymentStatus = 'refunded';
         
-        // Refund from cash drawer if cash sale
         if (order.paymentMethod === 'cash' && cashSession.status === 'open') {
           cashSession = addTransactionToSession(
             cashSession,
@@ -536,7 +531,6 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         refundedRevenue = order.total;
 
-        // Log refund in ledger
         allNewLogs.push({
           id: Math.random().toString(36).substring(2, 9),
           type: 'refund',
@@ -675,6 +669,13 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
+  const updateMerchantUpi = (upi: string) => {
+    setState((prev) => ({
+      ...prev,
+      merchantUpiId: upi,
+    }));
+  };
+
   const resetSystem = () => {
     setState(DEFAULT_STATE);
   };
@@ -690,6 +691,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         adjustDrawerCash,
         restockIngredient,
         toggleAutoStock,
+        updateMerchantUpi,
         resetSystem,
       }}
     >
