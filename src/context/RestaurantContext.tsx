@@ -106,6 +106,7 @@ export interface RestaurantState {
 
 interface RestaurantContextProps {
   state: RestaurantState;
+  isLoaded: boolean;
   placeOrder: (
     items: { menuItemId: string; quantity: number }[],
     fulfillmentType: 'dine_in' | 'takeaway' | 'curbside',
@@ -684,6 +685,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <RestaurantContext.Provider
       value={{
         state,
+        isLoaded,
         placeOrder,
         updateOrderStatus,
         openCashDrawer,
